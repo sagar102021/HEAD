@@ -81,7 +81,7 @@ function splitColun(csv) {
 function parseSchema(variable, type) {
     if (isObject(type)) {
         let child = [];
-        splitCommas(type.replace(/^\{/g, '').replace(/\}$/g, '')).forEach((csv) => {
+        splitCommas(type.replace(/^\{/g, '').replace(/,\}$/g, '')).forEach((csv) => {
             let csvkeyValue = splitColun(csv);
             let sChild = parseSchema(csvkeyValue[0], csvkeyValue[1]);
             child.push(sChild);
@@ -93,7 +93,7 @@ function parseSchema(variable, type) {
         }
     }
     else if (isArray(type)) {
-        let child = parseSchema("element", type.replace(/[\[\]]/g, ''));
+        let child = parseSchema("element", type.replace(/^\[/g, '').replace(/,\]$/g, ''));
         return {
             id: variable,
             type: "Array",
@@ -159,12 +159,133 @@ function parseData(value, schema) {
 }
 
 
+function makeSchema(jsonObject) {
+    let schema = [];
+    Object.keys(jsonObject).forEach(key => {
+        if(typeof jsonObject[key] === 'number') {
+            schema.push({
+                id: key,
+                type: "Number",
+                child: null
+            });
+        }   
+        else if(typeof jsonObject[key] === 'string') {
+            schema.push({
+                id: key,
+                type: "String",
+                child: null
+            });
+        } 
+        else if(typeof jsonObject[key] === 'boolean') {
+            schema.push({
+                id: key,
+                type: "Boolean",
+                child: null
+            });
+        }
+        else if(typeof jsonObject[key] === 'object') {
+            if(Array.isArray(jsonObject[key])) {
+                let child = [];
+                let arrayElement = {"Element": jsonObject[key][0]}
+                child = [...child, ...makeSchema(arrayElement)];
+                schema.push({
+                    id: key,
+                    type: "Array",
+                    child: child
+                });
+            }
+            else {
+                let child = [];
+                child = [...child, ...makeSchema(jsonObject[key])];
+                schema.push({
+                    id: key,
+                    type: "Object",
+                    child: child
+                });
+            }
+        }
+    });
+    return schema;
+}
+
+function serializeSchema(schema) {
+    let serializedSchema = '';
+    schema.forEach(key => {
+        if(key.type == "Number") {
+            serializedSchema += key["id"] + ":" + key['type'] + ",";
+        } else if(key.type === "String"){
+            serializedSchema += key["id"] + ":" + key['type'] + ",";
+        } else if(key.type === "Boolean") {
+            serializedSchema += key["id"] + ":" + key['type'] + ",";
+        } else if(key.type === "Array") {
+            let innerSchema = serializeSchema(key["child"]);
+            innerSchema = innerSchema.replace("Element:", "");
+            serializedSchema += key["id"] + ":[" + innerSchema + "],";
+        } else if(key.type === "Object") {
+            let innerSchema = serializeSchema(key["child"]);
+            serializedSchema += key["id"] + ':{' + innerSchema + '},';
+        }
+    });
+    return serializedSchema;
+}
+
+function serializeData(dataObject, schemaObject) {
+    let serializedData = '';
+    schemaObject.forEach(key => {
+        if(key.type === "Number") {
+            serializedData += String(dataObject[key["id"]]) +  ","; 
+        }
+        else if(key.type === "String") {
+            serializedData += dataObject[key["id"]] + ",";
+        }
+        else if(key.type === "Boolean") {
+            serializedData += dataObject[key["id"]] + ",";
+        }
+        else if(key.type === "Array") {
+            serializedData += '[';
+            let innerData = '';
+            dataObject[key["id"]].forEach((arrayElement) => {
+                let isAOO = key["child"][0]["type"] === "Object";
+                if(isAOO) {
+                    innerData += '{';
+                }
+                innerData += serializeData(arrayElement, key["child"][0]["child"]);
+                if(isAOO) {
+                    innerData += '}';
+                }
+            })
+            serializedData += innerData;
+            serializedData += '],';
+        }
+        else if(key.type === "Object") {
+            serializedData += '{';
+            let innerData = "";
+            innerData += serializeData(dataObject[key["id"]], key["child"]);
+            serializedData += innerData;
+            serializedData += '},';
+        }
+    });
+    return serializedData;
+}
+
+function sandwitch(string) {
+    return '{' + string + '}'
+}
+
+// non inverter
+
+
+//18300, 150h, 890ups, amaron
+//4 tubes , 5fans, tv, 
+
+
+//110 650ups
 /////////----------------------TESTS
 /* fs.readFile('sample.tson', (err, data) => {
     let lines = data.toString().split('\n');
 }) */
 
-function sandwitch(string) {
+/* function sandwitch(string) {
     return '{' + string + '}'
 }
 
@@ -175,5 +296,44 @@ console.log(schma);
 
 let sch = parseSchema("root" ,schma);
 console.log(JSON.stringify(schma));
-console.log(JSON.stringify(parseData(p, sch), null, 2));
+console.log(JSON.stringify(parseData(p, sch), null, 2)); */
 //console.log(JSON.stringify(parseSchema("root", "{name:String,age:Number,friends:[String],studies:{class:String,year:Number}}"), null, 2));
+
+
+let d = [
+    {
+      "id": 1,
+      "name": "Leanne Graham",
+      "username": "Bret",
+      "email": "Sincere@april.biz",
+      "address": {
+        "street": "Kulas Light",
+        "suite": "Apt. 556",
+        "city": "Gwenborough",
+        "zipcode": "92998-3874",
+        "geo": {
+          "lat": "-37.3159",
+          "lng": "81.1496"
+        }
+      },
+      "phone": "1-770-736-8031 x56442",
+      "website": "hildegard.org",
+      "company": [{
+        "name": "Romaguera-Crona",
+        "catchPhrase": "Multi-layered client-server neural-net",
+        "bs": "harness real-time e-markets"
+      }]
+    }
+];
+/* console.log(JSON.stringify(makeSchema(d[0]), null, 2));*/
+console.log(serializeSchema(makeSchema(d[0]))); 
+
+console.log(serializeData(d[0], makeSchema(d[0])));
+
+let ss = serializeSchema(makeSchema(d[0]));
+
+let sch = parseSchema("root" ,sandwitch(ss));
+
+let sd = serializeData(d[0], makeSchema(d[0]));
+
+console.log(JSON.stringify(parseData(sandwitch(sd), sch), null, 2)); 
