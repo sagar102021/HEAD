@@ -244,7 +244,7 @@ function serializeData(dataObject, schemaObject) {
         else if(key.type === "Array") {
             serializedData += '[';
             let innerData = '';
-            dataObject[key["id"]].forEach((arrayElement) => {
+            (dataObject[key["id"]])?dataObject[key["id"]].forEach((arrayElement) => {
                 let isAOO = key["child"][0]["type"] === "Object";
                 if(isAOO) {
                     innerData += '{';
@@ -253,14 +253,14 @@ function serializeData(dataObject, schemaObject) {
                 if(isAOO) {
                     innerData += '}';
                 }
-            })
+            }):(innerData = '');
             serializedData += innerData;
             serializedData += '],';
         }
         else if(key.type === "Object") {
             serializedData += '{';
             let innerData = "";
-            innerData += serializeData(dataObject[key["id"]], key["child"]);
+            innerData += (dataObject[key["id"]]) ? serializeData(dataObject[key["id"]], key["child"]) : "";
             serializedData += innerData;
             serializedData += '},';
         }
@@ -272,68 +272,38 @@ function sandwitch(string) {
     return '{' + string + '}'
 }
 
-// non inverter
 
-
-//18300, 150h, 890ups, amaron
-//4 tubes , 5fans, tv, 
-
-
-//110 650ups
-/////////----------------------TESTS
-/* fs.readFile('sample.tson', (err, data) => {
-    let lines = data.toString().split('\n');
-}) */
-
-/* function sandwitch(string) {
-    return '{' + string + '}'
+function serialize(jsonArray) {
+    let schemaObj = makeSchema(jsonArray[0]);
+    let serializedSchema = serializeSchema(schemaObj);
+    let serializedData = "";
+    jsonArray.forEach(obj => {
+        let serializedObj = serializeData(obj, schemaObj);
+        serializedData += serializedObj + "\n";
+    });
+    return serializedSchema + "\n" + serializedData;
 }
 
-let  p = `{1, leane grapham, bret, sincere@april.biz, {kulas Light, Apt. 556, gwenborough, 9213-123, {-37.3159, 81.1496}, 1-70-736, hildegard.org}, {Romaguera-crona, adhkajd, akdhad}}`.replace(/\s/g, '');
-let  schma = `{Id:Number, name: String, username: String, email: String, address: {street: String, suite: String, city: String, zipcode: Number, geo: {lat: String, lng: String}, phone: String, website: String}, company: {name: String, catchPhrase: String, bs: String}}`.replace(/\s/g, '');
-
-console.log(schma);
-
-let sch = parseSchema("root" ,schma);
-console.log(JSON.stringify(schma));
-console.log(JSON.stringify(parseData(p, sch), null, 2)); */
-//console.log(JSON.stringify(parseSchema("root", "{name:String,age:Number,friends:[String],studies:{class:String,year:Number}}"), null, 2));
-
-
-let d = [
-    {
-      "id": 1,
-      "name": "Leanne Graham",
-      "username": "Bret",
-      "email": "Sincere@april.biz",
-      "address": {
-        "street": "Kulas Light",
-        "suite": "Apt. 556",
-        "city": "Gwenborough",
-        "zipcode": "92998-3874",
-        "geo": {
-          "lat": "-37.3159",
-          "lng": "81.1496"
+function deserialize(headString) {
+    let heads = headString.split("\n");
+    let schemaObj = parseSchema("root", sandwitch(heads[0]));
+    let parsedJson = [];
+    for(let i = 1; i < heads.length; i++) {
+        if(heads[i] != "") {
+            let jsonObject = parseData(heads[i], schemaObj);
+            parsedJson.push(jsonObject);
         }
-      },
-      "phone": "1-770-736-8031 x56442",
-      "website": "hildegard.org",
-      "company": [{
-        "name": "Romaguera-Crona",
-        "catchPhrase": "Multi-layered client-server neural-net",
-        "bs": "harness real-time e-markets"
-      }]
     }
-];
-/* console.log(JSON.stringify(makeSchema(d[0]), null, 2));*/
-console.log(serializeSchema(makeSchema(d[0]))); 
+    return parsedJson.map(obj => obj.root);
+}
 
-console.log(serializeData(d[0], makeSchema(d[0])));
+///////TEST -----------------------
 
-let ss = serializeSchema(makeSchema(d[0]));
+let d = JSON.parse(fs.readFileSync("sample.json"));
 
-let sch = parseSchema("root" ,sandwitch(ss));
+fs.writeFileSync("serialized.head", serialize(d));
 
-let sd = serializeData(d[0], makeSchema(d[0]));
+fs.readFile("serialized.head", null, (err, data) => {
+    fs.writeFileSync("deserialize.json", JSON.stringify(deserialize(data.toString(), null, 2)));
+})
 
-console.log(JSON.stringify(parseData(sandwitch(sd), sch), null, 2)); 
