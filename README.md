@@ -1,4 +1,4 @@
-# TSON
+# HEAD
 
 It is a serialization format aimed to reduce verbosity.
 
